@@ -63,7 +63,7 @@ export const Vehicles = () => {
           <Button variant='contained' color='primary' onClick={() => setNewVehicle(true)} startIcon={<PlusCircle />}>
             Agregar Vehículo
           </Button>
-          <AddDrawer form={<NewVehicle />} open={newVehicle} setOpen={setNewVehicle} />
+          <AddDrawer form={<NewVehicle setOpen={setNewVehicle} />} open={newVehicle} setOpen={setNewVehicle} />
 
           {selectedVehicle ? (
             <AddDrawer

@@ -32,6 +32,7 @@ export const EditVehicle = ({ open, setOpen }) => {
   const [salePrice, setSalePrice] = useState(selectedVehicle.salePrice)
   const [suggPrice, setSuggPrice] = useState(selectedVehicle.suggPrice)
   const [initPrice, setInitPrice] = useState(selectedVehicle.initPrice)
+  const [description, setDescription] = useState(selectedVehicle.description)
 
   // ** Handle Image Upload
   const handleImageUpload = event => {
@@ -70,6 +71,7 @@ export const EditVehicle = ({ open, setOpen }) => {
       // Conditionally add fields if they have values
       if (name) updateData.name = name
       if (cc) updateData.cc = cc
+      if (description) updateData.description = description
       if (category) updateData.category = category
       if (brand) updateData.brand = brand
       if (salePrice) updateData.salePrice = salePrice
@@ -166,8 +168,19 @@ export const EditVehicle = ({ open, setOpen }) => {
             </div>
           )}
         </Card>
+        {/* Description Field */}
+        <Grid>
+          <TextField
+            value={description}
+            sx={styles.textInput}
+            label='Descripción'
+            name='description'
+            multiline
+            rows={3}
+            required
+          />
+        </Grid>
         {/* Cilindraje Field */}
-
         <Grid>
           <TextField value={cc} onChange={handleCcChange} sx={styles.textInput} label='Cilindraje' name='cc' required />
         </Grid>

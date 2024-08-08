@@ -1,97 +1,91 @@
-/* eslint-disable lines-around-comment */
-import React from 'react'
-import { useState, useEffect } from 'react'
+import React, { useState } from 'react';
+import { Grid, Typography, Box, TextField, Button, FormControl, Divider } from '@mui/material';
+import { getFirestore, collection, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { CheckCircle, Upload } from '@phosphor-icons/react';
+import { VehicleCategories } from '../inputs/VehicleCategories';
+import { VehicleBrands } from '../inputs/VehicleBrands';
+import { ImagesPreview } from './ImagesPreview';
+import { v4 as uuidv4 } from 'uuid';
+import { toast } from 'react-toastify';
 
-// ** MUI Imports
-import { Grid, Typography, Card, Divider, TextField, Button, Box, FormControl, MenuItem, Select } from '@mui/material'
-// ** Firebase Imports
-import { database } from 'src/firebase'
-import { collection, addDoc } from 'firebase/firestore'
-import { getDownloadURL, getStorage, uploadBytes, ref } from 'firebase/storage'
-// ** Icon Imports
-import { CheckCircle, PlusCircle, Upload } from '@phosphor-icons/react'
+// Initialize Firestore and Storage
+const database = getFirestore();
+const storage = getStorage();
 
-// ** Custom Components
-import { VehicleCategories } from '../inputs/VehicleCategories'
-import { VehicleBrands } from '../inputs/VehicleBrands'
-// ** v4
-import { v4 } from 'uuid'
+export const NewVehicle = ({setOpen}) => {
+  const [images, setImages] = useState([]);
+  const [previews, setPreviews] = useState([]);
+  const [name, setName] = useState('');
+  const [cc, setCc] = useState('');
+  const [category, setCategory] = useState(null);
+  const [brand, setBrand] = useState(null);
+  const [salePrice, setSalePrice] = useState('');
+  const [initPrice, setInitPrice] = useState('');
 
-export const NewVehicle = () => {
-  const storage = getStorage()
-
-  // ** New Vehicle Field States
-  const [image, setImage] = useState(null)
-  const [name, setName] = useState('')
-  const [cc, setCc] = useState('')
-  const [category, setCategory] = useState(null)
-  const [brand, setBrand] = useState(null)
-  const [salePrice, setSalePrice] = useState(0)
-  const [suggPrice, setSuggPrice] = useState(0)
-  const [initPrice, setInitPrice] = useState(0)
-
-  // ** Handle Image Upload
   const handleImageUpload = event => {
-    // Check if files are selected
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0]
-      const fileExtension = file.name.slice(file.name.lastIndexOf('.'))
-      const storageRef = ref(storage, `images/vehicles/${v4()}${fileExtension}`)
-      uploadBytes(storageRef, file)
-        .then(snapshot => {
-          console.log('Uploaded a blob or file!', snapshot)
-          getDownloadURL(storageRef)
-            .then(url => {
-              setImage(url)
-            })
-            .catch(error => {
-              console.error('Error getting download URL:', error)
-            })
-        })
-        .catch(error => {
-          console.error('Error uploading logo:', error)
-        })
-    } else {
-      console.error('No file selected')
-    }
-  }
+    const files = Array.from(event.target.files)
+    setImages(prevImages => [...prevImages, ...files])
 
-  // ** Create New Vehicle
-  const createVehicle = async e => {
-    e.preventDefault()
-    try {
-      const docRef = await addDoc(collection(database, 'vehicles'), {
-        image,
-        name,
-        cc,
-        salePrice,
-        suggPrice,
-        initPrice
-      })
-      console.log('Document written with ID: ', docRef.id)
-    } catch (e) {
-      console.error('Error adding document: ', e)
-    }
+    const filePreviews = files.map(file => URL.createObjectURL(file))
+    setPreviews(prevPreviews => [...prevPreviews, ...filePreviews])
   }
+  const createVehicle = async event => {
+    event.preventDefault();
+
+    const vehicleData = {
+      name,
+      cc,
+      category,
+      brand,
+      salePrice: parseFloat(salePrice.replace(/[^0-9.]/g, '')),
+      initPrice: parseFloat(initPrice.replace(/[^0-9.]/g, '')),
+    };
+
+    try {
+      // Add vehicle data to Firestore and get the document reference
+      const docRef = await addDoc(collection(database, 'vehicles'), vehicleData);
+      console.log('Document written with ID: ', docRef.id);
+      setOpen(false)
+      // Upload images and get their URLs
+      const uploadPromises = images.map(file => {
+        const fileExtension = file.name.slice(file.name.lastIndexOf('.'));
+        const storageRef = ref(storage, `images/vehicles/${docRef.id}/${uuidv4()}${fileExtension}`);
+        return uploadBytes(storageRef, file)
+          .then(snapshot => {
+            console.log('Uploaded a blob or file!', snapshot);
+            return getDownloadURL(snapshot.ref);
+          });
+      });
+
+      const urls = await Promise.all(uploadPromises);
+
+      // Update the document with the image URLs
+      await updateDoc(docRef, { images: urls })
+      console.log('Document updated with image URLs')
+
+    } catch (e) {
+      console.error('Error adding document: ', e);
+    }
+  };
 
   const handlePriceChange = event => {
     // Remove non-numeric characters
-    const numericValue = event.target.value.replace(/[^0-9]/g, '')
+    const numericValue = event.target.value.replace(/[^0-9]/g, '');
     // Format as price (simple formatting)
-    const formattedPrice = numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-    const priceWithPrefix = `$${formattedPrice}`
-    setSalePrice(priceWithPrefix)
-  }
+    const formattedPrice = numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const priceWithPrefix = `$${formattedPrice}`;
+    setSalePrice(priceWithPrefix);
+  };
 
   const handleInitPriceChange = event => {
     // Remove non-numeric characters
-    const numericValue = event.target.value.replace(/[^0-9]/g, '')
+    const numericValue = event.target.value.replace(/[^0-9]/g, '');
     // Format as price (simple formatting)
-    const formattedPrice = numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-    // Add $ as prefix
-    const priceWithPrefix = `$${formattedPrice}`
-    setInitPrice(priceWithPrefix)
-  }
+    const formattedPrice = numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const priceWithPrefix = `$${formattedPrice}`;
+    setInitPrice(priceWithPrefix);
+  };
 
   return (
     <form onSubmit={createVehicle}>
@@ -122,16 +116,17 @@ export const NewVehicle = () => {
         {/* Image Field */}
         <FormControl>
           <Button
-            startIcon={image ? <CheckCircle /> : <Upload />}
-            variant={image ? 'contained' : 'outlined'}
+            startIcon={images.length > 0 ? <CheckCircle /> : <Upload />}
+            variant={images.length > 0 ? 'contained' : 'outlined'}
             component='label'
-            sx={{ my: 4, height: 56 }}
+            sx={{ my: 4, height: 46 }}
           >
-            {image ? 'Imagen Subida' : 'Imagen del producto*'}
-            <input style={styles.uploadInput} type='file' onChange={handleImageUpload} />
+            {images.length > 0 ? `Imagenes Seleccionadas ${images.length}` : 'Subir Imagenes'}
+            <input multiple style={styles.uploadInput} type='file' onChange={handleImageUpload} />
           </Button>
-
-          {/* Cilindraje Field */}
+          {/* Image placeholder */}
+          {images.length > 0 ? <ImagesPreview images={previews} /> : null}
+          {/* CC field */}
         </FormControl>
         <Grid>
           <TextField
@@ -144,16 +139,21 @@ export const NewVehicle = () => {
           />
         </Grid>
         <Grid>
+          <FormControl>
+            {/* Sale Price Field */}
           <TextField
-            sx={styles.textInput}
             value={salePrice}
             onChange={handlePriceChange}
+            sx={styles.textInput}
             label='Precio de Venta'
             name='salePrice'
             required
           />
+          </FormControl>
         </Grid>
         <Grid>
+          {/* Initial Price Field */}
+            <FormControl>
           <TextField
             onChange={handleInitPriceChange}
             value={initPrice}
@@ -162,6 +162,8 @@ export const NewVehicle = () => {
             name='initPrice'
             required
           />
+
+          </FormControl>
         </Grid>
         <Grid>
           <Button type='submit' variant='contained' color='primary'>
@@ -170,8 +172,8 @@ export const NewVehicle = () => {
         </Grid>
       </Grid>
     </form>
-  )
-}
+  );
+};
 
 const styles = {
   formContainer: {
@@ -189,4 +191,4 @@ const styles = {
     width: '100%',
     mb: 3
   }
-}
+};

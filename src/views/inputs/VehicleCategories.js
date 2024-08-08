@@ -58,7 +58,7 @@ export const VehicleCategories = ({category, setCategory}) => {
     >
       <Select
       sx={{ width: 220, mr: 2 }}
-      value={selectedVehicle.category?.name}
+      value={category?.name}
       onChange={handleCategoryChange}
     >
       <MenuItem value=''>Seleccione una categoría</MenuItem>
